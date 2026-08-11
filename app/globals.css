@@ -1,0 +1,26 @@
+ @import "tailwindcss";
+
+:root {
+  --color-bone: #f1efe9;      /* background */
+  --color-ink: #1a1a17;       /* primary text */
+  --color-ink-soft: #5c5a52;  /* secondary text */
+  --color-accent: #33415c;    /* deep muted indigo - brand accent */
+  --color-sand: #e3ddcd;      /* card / section fill */
+  --color-line: #d9d3c4;      /* hairline borders */
+}
+
+@theme inline {
+  --color-bone: var(--color-bone);
+  --color-ink: var(--color-ink);
+  --color-ink-soft: var(--color-ink-soft);
+  --color-accent: var(--color-accent);
+  --color-sand: var(--color-sand);
+  --color-line: var(--color-line);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+}
+
+body {
+  font-family: var(--font-body), sans-serif;
+}
