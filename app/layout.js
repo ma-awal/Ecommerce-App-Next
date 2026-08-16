@@ -37,9 +37,9 @@ export default function RootLayout({ children }) {
       className={`${fraunces.variable} ${workSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[#F1EFE9] text-[#1A1A17]">
-        <Header />
+     
         <div className="flex-1 flex flex-col">{children}</div>
-        <Footer />
+        
       </body>
     </html>
   );

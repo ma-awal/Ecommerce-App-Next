@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
  
-import { useCartStore } from "../../store/cartStore";
+import { useCartStore } from "../../../store/cartStore";
 
 const PAYMENT_METHODS = [
   { id: "bkash", label: "bKash", number: "01712345678" },
