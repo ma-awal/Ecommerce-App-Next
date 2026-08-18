@@ -1,6 +1,8 @@
-import { NextResponse } from "next/server";
+ import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import Order from "@/models/Order";
+import Product from "@/models/Product";
 
 function generateOrderCode() {
   return `ORD-${Date.now().toString().slice(-6)}`;
@@ -43,21 +45,67 @@ export async function POST(request) {
 
     await connectDB();
 
-    const order = await Order.create({
-      orderCode: generateOrderCode(),
-      customer,
-      items,
-      paymentMethod,
-      paymentInfo: paymentInfo || {},
-      totalAmount,
-    });
+    const session = await mongoose.startSession();
+    let createdOrder;
 
-    return NextResponse.json({ order }, { status: 201 });
+    try {
+      await session.withTransaction(async () => {
+        for (const item of items) {
+          const result = await Product.updateOne(
+            {
+              slug: item.slug,
+              variants: {
+                $elemMatch: {
+                  color: item.color,
+                  size: item.size,
+                  stock: { $gte: item.qty },
+                },
+              },
+            },
+            {
+              $inc: { "variants.$[variant].stock": -item.qty },
+            },
+            {
+              arrayFilters: [
+                { "variant.color": item.color, "variant.size": item.size },
+              ],
+              session,
+            }
+          );
+
+          if (result.modifiedCount === 0) {
+            throw new Error(
+              `${item.name} (${item.colorName}, ${item.size}) - stock nai ba proyojoner cheye kom ache`
+            );
+          }
+        }
+
+        const [order] = await Order.create(
+          [
+            {
+              orderCode: generateOrderCode(),
+              customer,
+              items,
+              paymentMethod,
+              paymentInfo: paymentInfo || {},
+              totalAmount,
+            },
+          ],
+          { session }
+        );
+
+        createdOrder = order;
+      });
+    } finally {
+      session.endSession();
+    }
+
+    return NextResponse.json({ order: createdOrder }, { status: 201 });
   } catch (error) {
     console.error("Order creation failed:", error);
-    return NextResponse.json(
-      { error: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
+    const message = error.message?.includes("stock")
+      ? error.message
+      : "Something went wrong. Please try again.";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

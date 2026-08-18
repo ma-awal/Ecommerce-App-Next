@@ -1,10 +1,7 @@
-"use client";
-// Eikhane color/size/qty select korle UI update hote hobe real-time -
-// tai "use client" lagbe. Product data (name, price, colors list) shob
-// server theke prop hishebe ashe - shudhu "kon ta select kora ache" eita
-// client-side state.
-import { useState } from "react";
- import { useCartStore } from "@/store/cartStore";
+ "use client";
+
+import { useState, useMemo } from "react";
+import { useCartStore } from "@/store/cartStore";
 
 function TeeIllustration({ color }) {
   return (
@@ -21,17 +18,40 @@ function TeeIllustration({ color }) {
 }
 
 export default function ProductView({ product, initialColorSlug }) {
+  const colors = useMemo(() => {
+    const seen = new Map();
+    for (const v of product.variants) {
+      if (!seen.has(v.color)) {
+        seen.set(v.color, { slug: v.color, name: v.colorName, hex: v.colorHex });
+      }
+    }
+    return Array.from(seen.values());
+  }, [product.variants]);
+
   const defaultColor =
-    product.colors.find((c) => c.slug === initialColorSlug) ||
-    product.colors[0];
+    colors.find((c) => c.slug === initialColorSlug) || colors[0];
 
   const [selectedColor, setSelectedColor] = useState(defaultColor);
   const [selectedSize, setSelectedSize] = useState(null);
   const [qty, setQty] = useState(1);
   const [sizeError, setSizeError] = useState(false);
+  const [stockError, setStockError] = useState("");
   const [added, setAdded] = useState(false);
 
   const addItem = useCartStore((state) => state.addItem);
+
+  const sizesForColor = useMemo(() => {
+    return product.variants.filter((v) => v.color === selectedColor.slug);
+  }, [product.variants, selectedColor]);
+
+  const selectedVariant = sizesForColor.find((v) => v.size === selectedSize);
+  const availableStock = selectedVariant?.stock ?? 0;
+
+  function handleColorChange(color) {
+    setSelectedColor(color);
+    setSelectedSize(null);
+    setStockError("");
+  }
 
   function handleAddToCart() {
     if (!selectedSize) {
@@ -39,6 +59,16 @@ export default function ProductView({ product, initialColorSlug }) {
       return;
     }
     setSizeError(false);
+
+    if (availableStock < qty) {
+      setStockError(
+        availableStock === 0
+          ? "Ei size ta stock e nai."
+          : `Shudhu ${availableStock} ta baki ache ei size e.`
+      );
+      return;
+    }
+    setStockError("");
 
     addItem({
       slug: product.slug,
@@ -54,6 +84,7 @@ export default function ProductView({ product, initialColorSlug }) {
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   }
+
   return (
     <div className="max-w-6xl mx-auto px-5 sm:px-8 py-12 grid sm:grid-cols-2 gap-12">
       <div className="bg-sand rounded-2xl py-16 px-6 border border-line">
@@ -76,11 +107,11 @@ export default function ProductView({ product, initialColorSlug }) {
             COLOR — {selectedColor.name.toUpperCase()}
           </p>
           <div className="flex gap-3">
-            {product.colors.map((color) => (
+            {colors.map((color) => (
               <button
                 key={color.slug}
                 type="button"
-                onClick={() => setSelectedColor(color)}
+                onClick={() => handleColorChange(color)}
                 aria-label={color.name}
                 aria-pressed={selectedColor.slug === color.slug}
                 className={`h-10 w-10 rounded-full border-2 transition-all ${
@@ -98,25 +129,37 @@ export default function ProductView({ product, initialColorSlug }) {
           <p className="font-mono text-[11px] tracking-widest text-ink-soft mb-3">
             SIZE {sizeError && <span className="text-accent">— please select a size</span>}
           </p>
-          <div className="flex gap-2">
-            {product.sizes.map((size) => (
-              <button
-                key={size}
-                type="button"
-                onClick={() => {
-                  setSelectedSize(size);
-                  setSizeError(false);
-                }}
-                className={`h-11 w-11 rounded-lg border text-sm font-medium transition-colors ${
-                  selectedSize === size
-                    ? "bg-ink text-bone border-ink"
-                    : "border-line text-ink hover:border-accent"
-                }`}
-              >
-                {size}
-              </button>
-            ))}
+          <div className="flex gap-2 flex-wrap">
+            {sizesForColor.map((variant) => {
+              const outOfStock = variant.stock === 0;
+              return (
+                <button
+                  key={variant.size}
+                  type="button"
+                  disabled={outOfStock}
+                  onClick={() => {
+                    setSelectedSize(variant.size);
+                    setSizeError(false);
+                    setStockError("");
+                  }}
+                  className={`h-11 min-w-11 px-3 rounded-lg border text-sm font-medium transition-colors relative ${
+                    outOfStock
+                      ? "border-line text-ink-soft/40 cursor-not-allowed line-through"
+                      : selectedSize === variant.size
+                      ? "bg-ink text-bone border-ink"
+                      : "border-line text-ink hover:border-accent"
+                  }`}
+                >
+                  {variant.size}
+                </button>
+              );
+            })}
           </div>
+          {selectedVariant && selectedVariant.stock > 0 && selectedVariant.stock <= 5 && (
+            <p className="text-xs text-accent mt-2">
+              Shudhu {selectedVariant.stock} ta baki ache.
+            </p>
+          )}
         </div>
 
         <div>
@@ -143,6 +186,8 @@ export default function ProductView({ product, initialColorSlug }) {
             </button>
           </div>
         </div>
+
+        {stockError && <p className="text-sm text-accent">{stockError}</p>}
 
         <button
           type="button"

@@ -9,7 +9,7 @@ import ProductView from "@/components/product/ProductView";
 // Next.js 15+ e params/searchParams Promise - tai await lagbe
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const product = await getProductBySlug(slug);
 
   if (!product) return { title: "Product not found" };
 
@@ -23,7 +23,7 @@ export default async function ProductPage({ params, searchParams }) {
   const { slug } = await params;
   const { color } = await searchParams;
 
-  const product = getProductBySlug(slug);
+  const product = await getProductBySlug(slug);
 
   if (!product) {
     notFound();
